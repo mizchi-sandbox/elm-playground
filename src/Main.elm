@@ -46,11 +46,7 @@ subscriptions model =
     Sub.batch
         [ onKeyDown (Decode.map (KeyChange True) keyDecoder)
         , onKeyUp (Decode.map (KeyChange False) keyDecoder)
-        , if anyIsDown model then
-            onAnimationFrameDelta Tick
-
-          else
-            Sub.none
+        , onAnimationFrameDelta Tick
         ]
 
 
@@ -87,10 +83,30 @@ update msg model =
             else
                 ( { model
                     | keyState =
-                        { up = not (key /= "," || model.keyState.up)
-                        , down = not (key /= "o" || model.keyState.down)
-                        , left = not (key /= "a" || model.keyState.left)
-                        , right = not (key /= "e" || model.keyState.right)
+                        { up =
+                            if key == "," && model.keyState.up then
+                                False
+
+                            else
+                                model.keyState.up
+                        , down =
+                            if key == "o" && model.keyState.down then
+                                False
+
+                            else
+                                model.keyState.down
+                        , left =
+                            if key == "a" && model.keyState.left then
+                                False
+
+                            else
+                                model.keyState.left
+                        , right =
+                            if key == "e" && model.keyState.right then
+                                False
+
+                            else
+                                model.keyState.right
                         }
                   }
                 , Cmd.none
@@ -98,9 +114,6 @@ update msg model =
 
         Tick delta ->
             let
-                player =
-                    model.player
-
                 dx =
                     if model.keyState.left then
                         -1
@@ -124,8 +137,8 @@ update msg model =
                 newModel =
                     { model
                         | player =
-                            { x = player.x + dx
-                            , y = player.y + dy
+                            { x = model.player.x + dx
+                            , y = model.player.y + dy
                             }
                     }
             in
