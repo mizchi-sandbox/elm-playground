@@ -1,4 +1,4 @@
-module Main exposing (main)
+port module Main exposing (main)
 
 import Browser
 import Browser.Events exposing (onAnimationFrameDelta, onKeyDown, onKeyUp)
@@ -10,16 +10,15 @@ import Svg exposing (circle, g, svg)
 import Svg.Attributes exposing (..)
 
 
+port toJs : String -> Cmd msg
+
+
 screenWidth =
     300
 
 
 screenHeight =
     300
-
-
-type alias Position =
-    ( Int, Int )
 
 
 type alias Player =
@@ -29,10 +28,10 @@ type alias Player =
 
 
 type alias Bullet =
-    { x : Int
-    , y : Int
-    , vx : Int
-    , vy : Int
+    { x : Float
+    , y : Float
+    , vx : Float
+    , vy : Float
     }
 
 
@@ -185,13 +184,14 @@ updateGameState model num =
                     (\bullet ->
                         { bullet
                             | y = bullet.y + bullet.vy
+                            , vy = bullet.vy + 0.1
                         }
                     )
 
         addingScore =
             model.bullets
                 |> List.filter
-                    (\bullet -> (bullet.x - model.player.x) ^ 2 + (bullet.y - model.player.y) ^ 2 < 10 ^ 2)
+                    (\bullet -> nearEnough model.player bullet)
                 |> List.length
     in
     { model
@@ -209,25 +209,29 @@ killBullets : Player -> List Bullet -> List Bullet
 killBullets player bullets =
     bullets
         |> List.filter (\b -> b.y < screenHeight)
-        |> List.filter
-            (\bullet -> (bullet.x - player.x) ^ 2 + (bullet.y - player.y) ^ 2 > 10 ^ 2)
+        |> List.filter (\bullet -> not (nearEnough player bullet))
+
+
+nearEnough : Player -> Bullet -> Bool
+nearEnough player bullet =
+    (bullet.x - toFloat player.x) ^ 2 + (bullet.y - toFloat player.y) ^ 2 < 10 ^ 2
 
 
 spawnBullets : Int -> List Bullet -> List Bullet
 spawnBullets num bullets =
     if List.length bullets < 15 then
-        List.append [ createNewBullet num 10 ] bullets
+        bullets |> List.append [ createNewBullet (toFloat num) 10 ]
 
     else
         bullets
 
 
-createNewBullet : Int -> Int -> Bullet
+createNewBullet : Float -> Float -> Bullet
 createNewBullet x y =
     { x = x
     , y = y
-    , vx = 0
-    , vy = 3
+    , vx = 0.0
+    , vy = 1.0
     }
 
 
@@ -267,8 +271,8 @@ viewScore n =
 viewBullet : Bullet -> Html Msg
 viewBullet bullet =
     circle
-        [ cx (String.fromInt bullet.x)
-        , cy (String.fromInt bullet.y)
+        [ cx (String.fromInt (truncate bullet.x))
+        , cy (String.fromInt (truncate bullet.y))
         , r "3"
         , stroke "black"
         ]
