@@ -5,8 +5,35 @@ import Browser.Events exposing (onAnimationFrameDelta, onKeyDown, onKeyUp)
 import Html exposing (..)
 import Html.Events exposing (on, onClick)
 import Json.Decode as Decode exposing (Decoder, andThen, fail, field, int, map, oneOf, succeed)
-import Svg exposing (circle, svg)
+import Random
+import Svg exposing (circle, g, svg)
 import Svg.Attributes exposing (..)
+
+
+screenWidth =
+    300
+
+
+screenHeight =
+    300
+
+
+type alias Position =
+    ( Int, Int )
+
+
+type alias Player =
+    { x : Int
+    , y : Int
+    }
+
+
+type alias Bullet =
+    { x : Int
+    , y : Int
+    , vx : Int
+    , vy : Int
+    }
 
 
 type alias KeyState =
@@ -18,17 +45,18 @@ type alias KeyState =
 
 
 type alias Model =
-    { player :
-        { x : Int
-        , y : Int
-        }
+    { player : Player
+    , bullets : List Bullet
     , keyState : KeyState
+    , timerCount : Int
+    , score : Int
     }
 
 
 type Msg
     = KeyChange Bool String
     | Tick Float
+    | Update Int
 
 
 main : Program () Model Msg
@@ -52,13 +80,16 @@ subscriptions model =
 
 init : ( Model, Cmd Msg )
 init =
-    ( { player = { x = 30, y = 30 }
+    ( { player = { x = truncate (screenWidth / 2), y = truncate (screenHeight - 10) }
+      , bullets = []
       , keyState =
             { up = False
             , down = False
             , right = False
             , left = False
             }
+      , timerCount = 0
+      , score = 0
       }
     , Cmd.none
     )
@@ -68,96 +99,180 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         KeyChange status key ->
-            if status then
-                ( { model
-                    | keyState =
-                        { up = key == ","
-                        , down = key == "o"
-                        , left = key == "a"
-                        , right = key == "e"
-                        }
-                  }
-                , Cmd.none
-                )
-
-            else
-                ( { model
-                    | keyState =
-                        { up =
-                            if key == "," && model.keyState.up then
-                                False
-
-                            else
-                                model.keyState.up
-                        , down =
-                            if key == "o" && model.keyState.down then
-                                False
-
-                            else
-                                model.keyState.down
-                        , left =
-                            if key == "a" && model.keyState.left then
-                                False
-
-                            else
-                                model.keyState.left
-                        , right =
-                            if key == "e" && model.keyState.right then
-                                False
-
-                            else
-                                model.keyState.right
-                        }
-                  }
-                , Cmd.none
-                )
+            ( { model | keyState = updateKeyState status key model.keyState }
+            , Cmd.none
+            )
 
         Tick delta ->
-            let
-                dx =
-                    if model.keyState.left then
-                        -1
+            ( model
+            , Random.generate Update (Random.int 1 screenWidth)
+            )
 
-                    else if model.keyState.right then
-                        1
+        Update n ->
+            ( updateGameState model n
+            , Cmd.none
+            )
 
-                    else
-                        0
 
-                dy =
-                    if model.keyState.up then
-                        -1
+updateKeyState : Bool -> String -> KeyState -> KeyState
+updateKeyState status key keyState =
+    if status then
+        { up = isUpKey key
+        , down = isDownKey key
+        , left = isLeftKey key
+        , right = isRightKey key
+        }
 
-                    else if model.keyState.down then
-                        1
+    else
+        { up =
+            if isUpKey key && keyState.up then
+                False
 
-                    else
-                        0
+            else
+                keyState.up
+        , down =
+            if isDownKey key && keyState.down then
+                False
 
-                newModel =
-                    { model
-                        | player =
-                            { x = model.player.x + dx
-                            , y = model.player.y + dy
-                            }
-                    }
-            in
-            ( newModel, Cmd.none )
+            else
+                keyState.down
+        , left =
+            if isLeftKey key && keyState.left then
+                False
+
+            else
+                keyState.left
+        , right =
+            if isRightKey key && keyState.right then
+                False
+
+            else
+                keyState.right
+        }
+
+
+updateGameState : Model -> Int -> Model
+updateGameState model num =
+    let
+        moveSpeed =
+            3
+
+        dx =
+            if model.keyState.left then
+                -moveSpeed
+
+            else if model.keyState.right then
+                moveSpeed
+
+            else
+                0
+
+        dy =
+            if model.keyState.up then
+                -moveSpeed
+
+            else if model.keyState.down then
+                moveSpeed
+
+            else
+                0
+
+        newBullets =
+            model.bullets
+                |> killBullets model.player
+                |> spawnBullets num
+                |> List.map
+                    (\bullet ->
+                        { bullet
+                            | y = bullet.y + bullet.vy
+                        }
+                    )
+
+        addingScore =
+            model.bullets
+                |> List.filter
+                    (\bullet -> (bullet.x - model.player.x) ^ 2 + (bullet.y - model.player.y) ^ 2 < 10 ^ 2)
+                |> List.length
+    in
+    { model
+        | player =
+            { x = model.player.x + dx
+            , y = model.player.y + dy
+            }
+        , bullets = newBullets
+        , timerCount = model.timerCount + 1
+        , score = model.score + addingScore
+    }
+
+
+killBullets : Player -> List Bullet -> List Bullet
+killBullets player bullets =
+    bullets
+        |> List.filter (\b -> b.y < screenHeight)
+        |> List.filter
+            (\bullet -> (bullet.x - player.x) ^ 2 + (bullet.y - player.y) ^ 2 > 10 ^ 2)
+
+
+spawnBullets : Int -> List Bullet -> List Bullet
+spawnBullets num bullets =
+    if List.length bullets < 15 then
+        List.append [ createNewBullet num 10 ] bullets
+
+    else
+        bullets
+
+
+createNewBullet : Int -> Int -> Bullet
+createNewBullet x y =
+    { x = x
+    , y = y
+    , vx = 0
+    , vy = 3
+    }
 
 
 view : Model -> Html Msg
-view model =
+view { player, bullets, score } =
     svg
-        [ width "600"
-        , height "600"
+        [ width (String.fromInt screenWidth)
+        , height (String.fromInt screenHeight)
         ]
-        [ circle
-            [ cx (String.fromInt model.player.x)
-            , cy (String.fromInt model.player.y)
-            , r "10"
-            ]
-            []
+        [ viewPlayer player
+        , viewScore score
+        , g [] (List.map viewBullet bullets)
         ]
+
+
+viewPlayer : Player -> Html Msg
+viewPlayer player =
+    circle
+        [ cx (String.fromInt player.x)
+        , cy (String.fromInt player.y)
+        , r "7"
+        , stroke "red"
+        ]
+        []
+
+
+viewScore : Int -> Html Msg
+viewScore n =
+    Svg.text_
+        [ x "5"
+        , y "20"
+        ]
+        [ Svg.text (String.fromInt n)
+        ]
+
+
+viewBullet : Bullet -> Html Msg
+viewBullet bullet =
+    circle
+        [ cx (String.fromInt bullet.x)
+        , cy (String.fromInt bullet.y)
+        , r "3"
+        , stroke "black"
+        ]
+        []
 
 
 keyDecoder : Decoder String
@@ -165,9 +280,21 @@ keyDecoder =
     Decode.field "key" Decode.string
 
 
-anyIsDown : Model -> Bool
-anyIsDown model =
-    model.keyState.up
-        || model.keyState.down
-        || model.keyState.left
-        || model.keyState.right
+isUpKey : String -> Bool
+isUpKey key =
+    List.member key [ ",", "w" ]
+
+
+isDownKey : String -> Bool
+isDownKey key =
+    List.member key [ "o", "s" ]
+
+
+isLeftKey : String -> Bool
+isLeftKey key =
+    List.member key [ "a" ]
+
+
+isRightKey : String -> Bool
+isRightKey key =
+    List.member key [ "e", "d" ]
