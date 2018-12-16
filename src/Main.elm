@@ -99,7 +99,7 @@ update msg model =
     case msg of
         KeyChange status key ->
             ( { model | keyState = updateKeyState status key model.keyState }
-            , Cmd.none
+            , Cmd.batch [ toJs "aaa" ]
             )
 
         Tick delta ->
