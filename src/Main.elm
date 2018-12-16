@@ -49,24 +49,22 @@ type alias Model =
     , keyState : KeyState
     , timerCount : Int
     , score : Int
+    , seed : Random.Seed
     }
 
 
 type Msg
     = KeyChange Bool String
     | Tick Float
-    | Update Int
 
-
-main : Program () Model Msg
+main : Program Int Model Msg
 main =
     Browser.element
         { view = view
-        , init = \() -> init
+        , init = \flags -> init flags
         , subscriptions = subscriptions
         , update = update
         }
-
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
@@ -77,8 +75,8 @@ subscriptions model =
         ]
 
 
-init : ( Model, Cmd Msg )
-init =
+init : Int -> ( Model, Cmd Msg )
+init flags =
     ( { player = { x = truncate (screenWidth / 2), y = truncate (screenHeight - 10) }
       , bullets = []
       , keyState =
@@ -89,6 +87,7 @@ init =
             }
       , timerCount = 0
       , score = 0
+      , seed = Random.initialSeed flags
       }
     , Cmd.none
     )
@@ -99,16 +98,11 @@ update msg model =
     case msg of
         KeyChange status key ->
             ( { model | keyState = updateKeyState status key model.keyState }
-            , Cmd.batch [ toJs "aaa" ]
+            , Cmd.batch [ toJs key ]
             )
 
         Tick delta ->
-            ( model
-            , Random.generate Update (Random.int 1 screenWidth)
-            )
-
-        Update n ->
-            ( updateGameState model n
+                        ( updateGameState model
             , Cmd.none
             )
 
@@ -150,9 +144,12 @@ updateKeyState status key keyState =
         }
 
 
-updateGameState : Model -> Int -> Model
-updateGameState model num =
+updateGameState : Model -> Model
+updateGameState model=
     let
+        (x, seed0) = Random.step (Random.int 0 screenWidth) model.seed
+        (y, seed1) = Random.step (Random.int 0 screenHeight) seed0
+
         moveSpeed =
             3
 
@@ -179,7 +176,7 @@ updateGameState model num =
         newBullets =
             model.bullets
                 |> killBullets model.player
-                |> spawnBullets num
+                |> spawnBullets x
                 |> List.map
                     (\bullet ->
                         { bullet
@@ -202,6 +199,7 @@ updateGameState model num =
         , bullets = newBullets
         , timerCount = model.timerCount + 1
         , score = model.score + addingScore
+        , seed = seed1
     }
 
 

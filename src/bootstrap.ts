@@ -1,7 +1,8 @@
 import { Elm } from "./Main.elm";
 
 const app = Elm.Main.init({
-  node: document.querySelector("main") as HTMLElement
+  node: document.querySelector("main") as HTMLElement,
+  flags: Date.now()
 });
 
 app.ports.toJs.subscribe(data => {
