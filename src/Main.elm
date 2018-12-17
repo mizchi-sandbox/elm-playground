@@ -57,6 +57,7 @@ type Msg
     = KeyChange Bool String
     | Tick Float
 
+
 main : Program Int Model Msg
 main =
     Browser.element
@@ -65,6 +66,7 @@ main =
         , subscriptions = subscriptions
         , update = update
         }
+
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
@@ -102,7 +104,7 @@ update msg model =
             )
 
         Tick delta ->
-                        ( updateGameState model
+            ( updateGameState model
             , Cmd.none
             )
 
@@ -145,11 +147,38 @@ updateKeyState status key keyState =
 
 
 updateGameState : Model -> Model
-updateGameState model=
+updateGameState model =
     let
-        (x, seed0) = Random.step (Random.int 0 screenWidth) model.seed
-        (y, seed1) = Random.step (Random.int 0 screenHeight) seed0
+        newModel =
+            model
+                |> updatePlayerPosition
+                |> killBullets model.player
+                |> spawnBullets
+                |> updateBulletsPosition
+                |> addScore
+    in
+    { newModel
+        | timerCount = model.timerCount + 1
+    }
 
+
+addScore : Model -> Model
+addScore model =
+    let
+        addingScore =
+            model.bullets
+                |> List.filter
+                    (\bullet -> nearEnough model.player bullet)
+                |> List.length
+    in
+    { model
+        | score = model.score + addingScore
+    }
+
+
+updatePlayerPosition : Model -> Model
+updatePlayerPosition model =
+    let
         moveSpeed =
             3
 
@@ -172,11 +201,20 @@ updateGameState model=
 
             else
                 0
+    in
+    { model
+        | player =
+            { x = model.player.x + dx
+            , y = model.player.y + dy
+            }
+    }
 
-        newBullets =
+
+updateBulletsPosition : Model -> Model
+updateBulletsPosition model =
+    { model
+        | bullets =
             model.bullets
-                |> killBullets model.player
-                |> spawnBullets x
                 |> List.map
                     (\bullet ->
                         { bullet
@@ -184,44 +222,41 @@ updateGameState model=
                             , vy = bullet.vy + 0.1
                         }
                     )
-
-        addingScore =
-            model.bullets
-                |> List.filter
-                    (\bullet -> nearEnough model.player bullet)
-                |> List.length
-    in
-    { model
-        | player =
-            { x = model.player.x + dx
-            , y = model.player.y + dy
-            }
-        , bullets = newBullets
-        , timerCount = model.timerCount + 1
-        , score = model.score + addingScore
-        , seed = seed1
     }
 
 
-killBullets : Player -> List Bullet -> List Bullet
-killBullets player bullets =
-    bullets
-        |> List.filter (\b -> b.y < screenHeight)
-        |> List.filter (\bullet -> not (nearEnough player bullet))
+killBullets : Player -> Model -> Model
+killBullets player model =
+    { model
+        | bullets =
+            model.bullets
+                |> List.filter (\b -> b.y < screenHeight)
+                |> List.filter (\bullet -> not (nearEnough player bullet))
+    }
+
+
+spawnBullets : Model -> Model
+spawnBullets model =
+    let
+        ( ( x, y ), newSeed ) =
+            Random.step
+                (Random.map2 Tuple.pair (Random.int 0 screenWidth) (Random.int 0 screenHeight))
+                model.seed
+    in
+    { model
+        | bullets =
+            if List.length model.bullets < 15 then
+                model.bullets |> List.append [ createNewBullet (toFloat x) 10 ]
+
+            else
+                model.bullets
+        , seed = newSeed
+    }
 
 
 nearEnough : Player -> Bullet -> Bool
 nearEnough player bullet =
     (bullet.x - toFloat player.x) ^ 2 + (bullet.y - toFloat player.y) ^ 2 < 10 ^ 2
-
-
-spawnBullets : Int -> List Bullet -> List Bullet
-spawnBullets num bullets =
-    if List.length bullets < 15 then
-        bullets |> List.append [ createNewBullet (toFloat num) 10 ]
-
-    else
-        bullets
 
 
 createNewBullet : Float -> Float -> Bullet
@@ -238,6 +273,7 @@ view { player, bullets, score } =
     svg
         [ width (String.fromInt screenWidth)
         , height (String.fromInt screenHeight)
+        , style "background: #aaa;"
         ]
         [ viewPlayer player
         , viewScore score
