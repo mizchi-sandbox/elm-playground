@@ -8,6 +8,6 @@ type ElmApp = {
 
 export const Elm: {
   Main: {
-    init(opts: { node: HTMLElement; flags?: any }): ElmApp;
+    init(opts: { node: HTMLElement; flags: number }): ElmApp;
   };
 };
