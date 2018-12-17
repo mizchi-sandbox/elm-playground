@@ -5,7 +5,8 @@
     "dev": "parcel src/index.html --open",
     "build": "parcel build src/index.html",
     "test": "jest",
-    "deploy": "netlify deploy -d dist --prod"
+    "deploy": "netlify deploy -d dist --prod",
+    "format": "elm-format src/*.elm --yes"
   },
   "devDependencies": {
     "@types/jest": "^23.3.9",

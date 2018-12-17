@@ -5,7 +5,7 @@ const app = Elm.Main.init({
   flags: Date.now()
 });
 
-app.ports.toJs.subscribe(data => {
+app.ports.keyPress.subscribe(data => {
   console.log(data);
 });
 console.log(app);

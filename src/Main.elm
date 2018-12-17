@@ -7,17 +7,11 @@ import Json.Decode as Decode exposing (Decoder, andThen, fail, field, int, map, 
 import Random
 import Svg exposing (circle, g, svg)
 import Svg.Attributes exposing (..)
+import Html exposing (Html)
+import KeyState exposing (KeyState)
 
 
-port toJs : String -> Cmd msg
-
-
-type alias KeyState =
-    { up : Bool
-    , down : Bool
-    , right : Bool
-    , left : Bool
-    }
+port keyPress : String -> Cmd msg
 
 
 type Msg
@@ -67,7 +61,7 @@ update msg model =
     case msg of
         KeyChange status key ->
             ( { model | keyState = updateKeyState status key model.keyState }
-            , Cmd.batch [ toJs key ]
+            , Cmd.batch [ keyPress key ]
             )
 
         Tick delta ->

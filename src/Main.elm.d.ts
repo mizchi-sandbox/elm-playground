@@ -1,6 +1,6 @@
 type ElmApp = {
   ports: {
-    toJs: {
+    keyPress: {
       subscribe(fn: (data: string) => void): void;
     };
   };

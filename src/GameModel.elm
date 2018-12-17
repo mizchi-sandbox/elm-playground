@@ -1,6 +1,6 @@
 module GameModel exposing (Bullet, Model, Player, screenHeight, screenWidth, updateGameState)
 
-import Main exposing (KeyState)
+import KeyState exposing (KeyState)
 import Random
 
 
